@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 4
 PATCHLEVEL = 14
-SUBLEVEL = 113
+SUBLEVEL = 114
 EXTRAVERSION =
 NAME = Petit Gorille
 
@@ -756,6 +756,16 @@ else ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3
 KBUILD_CFLAGS += -O3
 else ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS += -Os
+endif
+
+ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
+KBUILD_CFLAGS	+= -Os $(call cc-disable-warning,maybe-uninitialized,)
+else
+ifdef CONFIG_PROFILE_ALL_BRANCHES
+KBUILD_CFLAGS	+= -O2 $(call cc-disable-warning,maybe-uninitialized,)
+else
+KBUILD_CFLAGS   += -O2
+endif
 endif
 
 ifdef CONFIG_SOC_EXYNOS9820

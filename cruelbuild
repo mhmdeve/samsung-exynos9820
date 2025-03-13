@@ -23,6 +23,7 @@ from termios import FIONREAD
 from fcntl import ioctl
 from io import FileIO
 from os import fsencode, fsdecode
+import subprocess
 
 CK_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -411,7 +412,7 @@ def find_configs():
     prefix_len = len('cruel')
     suffix_len = len('.conf')
     nodefaults = check_env('NODEFAULTS')
-    files = [f for f in os.listdir('kernel/configs/') if re.match('^cruel[+-]?.*\.conf$', f)]
+    files = [f for f in os.listdir('kernel/configs/') if re.match(r'^cruel[+-]?.*\.conf$', f)]
     for f in files:
         if f == 'cruel.conf':
             continue
@@ -497,7 +498,7 @@ def parse_args():
                 if value not in toolchain:
                     fatal('Unknown toolchain: ' + value)
             elif key == 'magisk':
-                if value != 'canary' and value != 'alpha' and not re.match('^v\d+\.\d+', value):
+                if value != 'canary' and value != 'alpha' and not re.match(r'^v\d+\.\d+', value):
                     fatal('Unknown magisk version: ' + value + ' (example: canary, alpha, v20.4, v19.4, ...)')
                 configs['kernel']['magisk']['version'] = value
         else:
@@ -612,8 +613,8 @@ RANDOMSEED=0x{secrets.token_hex(8)}
 def switch_toolchain(compiler):
     cc = os.path.abspath(get_toolchain_cc(compiler))
     if cc.startswith(os.path.realpath('toolchain')):
-        branch = run(['git', 'submodule', 'foreach', 'git', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                     check=True, stdout=PIPE).stdout.decode('utf-8').splitlines()[1]
+        branch = subprocess.run(['git', '-C', 'toolchain', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                        check=True, stdout=subprocess.PIPE, text=True).stdout.strip()
         if not (tool_exists(cc) and compiler == branch):
             ret = run(['git', 'submodule', 'foreach', 'git', 'rev-parse', '--verify', '--quiet', compiler],
                       stdout=DEVNULL, stderr=DEVNULL)
@@ -904,15 +905,15 @@ def flash_zip(zipfile):
          '> {update}').format(zip=zippath, update=update_binary))],
         check=True)
     run(['adb', 'shell', *cmd_adb((
-         'fgrep -qI \\"\\" {update} && ' + # text file
-         '[ \\"\$(head -n 1 {update})\\" = \\"#!/sbin/sh\\" ] && ' +
-         'sed -i \\"1c\#!\$(which sh)\\" {update}').format(update=update_binary))],
+        r'fgrep -qI \"\" {update} && ' +  # text file
+        r'[ \"$(head -n 1 {update})\" = \"#!/sbin/sh\" ] && ' +
+        r'sed -i \"1c\#!$(which sh)\" {update}').format(update=update_binary))],
         check=True)
     run(['adb', 'shell', *cmd_adb('chmod +x ' + update_binary)],
         check=True)
     run(['adb', 'shell', *cmd_adb((
-         'set -o posix; FIFO=\$(mktemp -p {tmp} -u); mkfifo \$FIFO; exec 3<>\$FIFO; rm -f \$FIFO; ' +
-         'cd {tmp}; {update} 3 3 {zip}').format(tmp=tmpdir, update=update_binary, zip=zippath))],
+        r'set -o posix; FIFO=$(mktemp -p {tmp} -u); mkfifo $FIFO; exec 3<>$FIFO; rm -f $FIFO; ' +
+        r'cd {tmp}; {update} 3 3 {zip}').format(tmp=tmpdir, update=update_binary, zip=zippath))],
         check=True)
     cleanup()
     atexit.unregister(cleanup)
